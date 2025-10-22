@@ -13,6 +13,58 @@ A Flask-based web application demonstrating a multi-key encryption system with d
 
 ## 🏗️ Architecture
 
+### System Overview
+
+```mermaid
+graph TB
+    subgraph "User Roles"
+        M[Team Members<br/>n users]
+        S[Supervisors<br/>m users]
+    end
+
+    subgraph "Web Application"
+        UI[Flask Web UI]
+        API[REST API Endpoints]
+    end
+
+    subgraph "Security Layer"
+        RSA[RSA Key Pairs<br/>Per User]
+        AES[AES Symmetric<br/>Encryption]
+        QUORUM[Quorum Logic<br/>n+m Required]
+    end
+
+    subgraph "Database"
+        DB[(SQLite)]
+        USERS[Users Table]
+        DATA[EncryptedData Table]
+        REQUESTS[DecryptionRequests Table]
+        LOGS[Logs Table]
+    end
+
+    M --> UI
+    S --> UI
+    UI --> API
+    API --> RSA
+    API --> AES
+    API --> QUORUM
+    RSA --> DB
+    AES --> DB
+    QUORUM --> DB
+    DB --> USERS
+    DB --> DATA
+    DB --> REQUESTS
+    DB --> LOGS
+
+    style M fill:#e1f5fe
+    style S fill:#f3e5f5
+    style UI fill:#e8f5e8
+    style API fill:#fff3e0
+    style RSA fill:#ffebee
+    style AES fill:#ffebee
+    style QUORUM fill:#ffebee
+    style DB fill:#f5f5f5
+```
+
 ### Security Model
 - **Team Members (n)**: Can encrypt data and request decryption
 - **Supervisors (m)**: Can approve/decline decryption requests
