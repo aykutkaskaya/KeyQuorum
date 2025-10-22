@@ -13,6 +13,9 @@ app.config['SECRET_KEY'] = 'your-secret-key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///keyquorum.db'
 db = SQLAlchemy(app)
 
+# System master key for encrypting AES keys (in production, this should be securely stored)
+SYSTEM_MASTER_KEY = b'system_master_key_32_bytes_long!'  # Exactly 32 bytes for AES-256
+
 # Configuration for n and m - can be changed here
 N = 3  # number of team members
 M = 2  # number of supervisors
@@ -56,6 +59,14 @@ class ProxyKey(db.Model):
 
     data = db.relationship('EncryptedData', backref='proxy_keys')
     user = db.relationship('User', backref='proxy_keys')
+
+class MasterKey(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    data_id = db.Column(db.Integer, db.ForeignKey('encrypted_data.id'), nullable=False)
+    encrypted_master_key = db.Column(db.Text, nullable=False)  # Master AES key encrypted with system key
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    data = db.relationship('EncryptedData', backref='master_key')
 
 class Log(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -145,6 +156,25 @@ def decrypt_symmetric_key(encrypted_key, private_key):
     )
     return decrypted
 
+def encrypt_with_system_key(data, system_key):
+    """Encrypt data with system master key using AES"""
+    iv = os.urandom(16)
+    cipher = Cipher(algorithms.AES(system_key), modes.CBC(iv), backend=default_backend())
+    encryptor = cipher.encryptor()
+    padded_data = data + b'\0' * (16 - len(data) % 16)
+    encrypted_data = encryptor.update(padded_data) + encryptor.finalize()
+    return base64.b64encode(iv + encrypted_data).decode()
+
+def decrypt_with_system_key(encrypted_data, system_key):
+    """Decrypt data with system master key using AES"""
+    encrypted_data = base64.b64decode(encrypted_data)
+    iv = encrypted_data[:16]
+    encrypted_data = encrypted_data[16:]
+    cipher = Cipher(algorithms.AES(system_key), modes.CBC(iv), backend=default_backend())
+    decryptor = cipher.decryptor()
+    decrypted_padded = decryptor.update(encrypted_data) + decryptor.finalize()
+    return decrypted_padded.rstrip(b'\0')
+
 @app.route('/')
 def index():
     if 'user_id' not in session:
@@ -180,28 +210,31 @@ def add_data():
         use_proxy = 'use_proxy' in request.form  # New checkbox for proxy layer
 
         if use_proxy:
-            # Proxy layer: Encrypt data with AES, encrypt AES key for each team member
+            # Enhanced Proxy layer: Store master AES key encrypted with system key
             aes_key = os.urandom(32)
             encrypted_data = encrypt_data(data, aes_key)
+
+            new_data = EncryptedData(name=name, data=encrypted_data, symmetric_key_encrypted=None, use_proxy=True, one_time_view=one_time_view)
+            db.session.add(new_data)
+            db.session.commit()
+
+            # Store master AES key encrypted with system key
+            encrypted_master_key = encrypt_with_system_key(aes_key, SYSTEM_MASTER_KEY)
+            master_key_record = MasterKey(data_id=new_data.id, encrypted_master_key=encrypted_master_key)
+            db.session.add(master_key_record)
+            db.session.commit()
 
             # Encrypt AES key for each team member (members and supervisors)
             all_users = User.query.all()
             for user in all_users:
                 pub_key = deserialize_public_key(user.public_key)
                 encrypted_aes_key = encrypt_symmetric_key(aes_key, pub_key)
-                proxy_key = ProxyKey(data_id=None, user_id=user.id, encrypted_aes_key=encrypted_aes_key)
+
+                proxy_key = ProxyKey(data_id=new_data.id, user_id=user.id, encrypted_aes_key=encrypted_aes_key)
                 db.session.add(proxy_key)
-
-            new_data = EncryptedData(name=name, data=encrypted_data, symmetric_key_encrypted=None, use_proxy=True, one_time_view=one_time_view)
-            db.session.add(new_data)
             db.session.commit()
 
-            # Update proxy_keys with data_id
-            for proxy_key in ProxyKey.query.filter_by(data_id=None).all():
-                proxy_key.data_id = new_data.id
-            db.session.commit()
-
-            log = Log(action='Data encrypted with proxy layer', user_id=session['user_id'], data_id=new_data.id)
+            log = Log(action='Data encrypted with enhanced proxy layer', user_id=session['user_id'], data_id=new_data.id)
         else:
             # Original flow: Encrypt data with symmetric key, encrypt symmetric key for each user
             symmetric_key = os.urandom(32)
@@ -411,6 +444,57 @@ def logs():
     # Create a dict of data_id -> data for quick lookup
     datas = {data.id: data for data in EncryptedData.query.all()}
     return render_template('logs.html', logs=logs, datas=datas)
+@app.route('/add_user', methods=['POST'])
+def add_user():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+
+    username = request.form['username']
+    role = request.form['role']
+
+    # Check if user already exists
+    if User.query.filter_by(username=username).first():
+        flash('User already exists')
+        return redirect(url_for('index'))
+
+    # Generate keypair for new user
+    priv, pub = generate_keypair()
+
+    # Create new user
+    new_user = User(
+        username=username,
+        role=role,
+        public_key=serialize_public_key(pub),
+        private_key=serialize_private_key(priv)
+    )
+    db.session.add(new_user)
+    db.session.commit()
+
+    # For proxy-encrypted data, generate proxy keys for the new user
+    proxy_datas = EncryptedData.query.filter_by(use_proxy=True).all()
+    for data in proxy_datas:
+        # Get the master AES key from MasterKey table
+        master_key_record = MasterKey.query.filter_by(data_id=data.id).first()
+        if master_key_record:
+            # Decrypt master key with system key
+            aes_key = decrypt_with_system_key(master_key_record.encrypted_master_key, SYSTEM_MASTER_KEY)
+
+            # Encrypt AES key with new user's public key
+            pub_key = deserialize_public_key(new_user.public_key)
+            encrypted_aes_key = encrypt_symmetric_key(aes_key, pub_key)
+
+            # Create proxy key for new user
+            proxy_key = ProxyKey(data_id=data.id, user_id=new_user.id, encrypted_aes_key=encrypted_aes_key)
+            db.session.add(proxy_key)
+
+    db.session.commit()
+
+    log = Log(action=f'New user {username} added with role {role}', user_id=session['user_id'])
+    db.session.add(log)
+    db.session.commit()
+
+    flash(f'User {username} added successfully')
+    return redirect(url_for('index'))
 
 if __name__ == '__main__':
     with app.app_context():
@@ -426,4 +510,4 @@ if __name__ == '__main__':
                 user = User(username=f'supervisor{i+1}', role='supervisor', public_key=serialize_public_key(pub), private_key=serialize_private_key(priv))
                 db.session.add(user)
             db.session.commit()
-    app.run(host='0.0.0.0', debug=True)
+    app.run(host='0.0.0.0', port=5001, debug=True)
