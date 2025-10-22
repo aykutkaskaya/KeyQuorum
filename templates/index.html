@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>🔐 KeyQuorum - Multi-Key Encryption Demo</h1>
+<div style="text-align: center; margin-bottom: 30px;">
+    <p style="font-size: 18px; color: #666; margin-bottom: 20px;">Welcome to the KeyQuorum application. This demo showcases a multi-key encryption system with a dynamic n+m structure.</p>
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; display: inline-block;">
+        <h3 style="margin: 0; color: white;">Current Configuration</h3>
+        <p style="margin: 5px 0; font-size: 16px;">{{ n }} team members + {{ m }} supervisors</p>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 30px;">
+    <div style="background: linear-gradient(135deg, #4caf50 0%, #2e7d32 100%); color: white; padding: 20px; border-radius: 10px; text-align: center;">
+        <h3>📝 Add Data</h3>
+        <p>Encrypt sensitive data using the multi-key system</p>
+        <a href="{{ url_for('add_data') }}" style="color: white; text-decoration: underline;">Go to Add Data</a>
+    </div>
+    <div style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); color: white; padding: 20px; border-radius: 10px; text-align: center;">
+        <h3>🔓 Decrypt Data</h3>
+        <p>Request decryption approval and view approved data</p>
+        <a href="{{ url_for('decrypt_data_route') }}" style="color: white; text-decoration: underline;">Go to Decrypt Data</a>
+    </div>
+    <div style="background: linear-gradient(135deg, #9c27b0 0%, #7b1fa2 100%); color: white; padding: 20px; border-radius: 10px; text-align: center;">
+        <h3>📊 Activity Logs</h3>
+        <p>Monitor all encryption and decryption activities</p>
+        <a href="{{ url_for('logs') }}" style="color: white; text-decoration: underline;">View Logs</a>
+    </div>
+</div>
+
+<div style="margin-top: 40px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+    <h3>How it works:</h3>
+    <ol style="line-height: 1.6;">
+        <li><strong>Team Members</strong> can add encrypted data and request decryption from supervisors</li>
+        <li><strong>Supervisors</strong> receive approval requests and can approve or decline them</li>
+        <li><strong>Decryption</strong> requires both the member's and supervisor's keys to work</li>
+        <li><strong>Security</strong> is maintained through the n+m quorum system</li>
+    </ol>
+</div>
+{% endblock %}

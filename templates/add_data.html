@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>🔒 Add Encrypted Data</h1>
+<p style="text-align: center; color: #666; margin-bottom: 30px;">Enter sensitive data to encrypt using the multi-key system</p>
+
+<form method="post">
+    <label for="name">Data Name/Title:</label>
+    <input type="text" id="name" name="name" placeholder="Enter a descriptive name for this data..." required maxlength="200">
+    
+    <label for="data">Data to encrypt:</label>
+    <textarea id="data" name="data" placeholder="Enter your sensitive data here..." required></textarea>
+    
+    <div style="margin: 20px 0; padding: 20px; background: linear-gradient(135deg, #fff8e1 0%, #fff3c4 100%); border-radius: 12px; border: 2px solid #ffe082; box-shadow: 0 2px 8px rgba(255, 193, 7, 0.2);">
+        <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 12px;">
+            <input type="checkbox" id="one_time_view" name="one_time_view" style="width: 18px; height: 18px; margin-right: 12px; accent-color: #ff9800;">
+            <span style="font-size: 16px; font-weight: 600; color: #e65100;">🔒 One-time view only</span>
+        </label>
+        <div style="background: rgba(255, 255, 255, 0.7); padding: 12px; border-radius: 8px; border-left: 3px solid #ff9800;">
+            <p style="margin: 0; color: #bf360c; font-size: 14px; line-height: 1.4;">
+                <strong>⚠️ Security Feature:</strong> If enabled, approved data can only be viewed once per approval request.
+                To access the data again, a new approval request must be submitted to a supervisor.
+            </p>
+        </div>
+    </div>
+    
+    <button type="submit" class="btn-success">🔐 Encrypt and Store</button>
+</form>
+
+<div style="margin-top: 30px; padding: 20px; background: #e3f2fd; border-radius: 10px;">
+    <h3>ℹ️ How encryption works:</h3>
+    <ul style="line-height: 1.6;">
+        <li>Data is encrypted with a randomly generated AES key</li>
+        <li>The AES key is encrypted separately for each team member and supervisor</li>
+        <li>To decrypt, both a member and a supervisor must collaborate</li>
+        <li><strong>One-time view:</strong> If enabled, data can only be accessed once per approval</li>
+    </ul>
+</div>
+{% endblock %}

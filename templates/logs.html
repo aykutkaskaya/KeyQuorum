@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Activity Logs</h1>
+<p style="text-align: center; color: #666; margin-bottom: 20px;">Track all encryption and decryption activities in the system</p>
+<table>
+    <tr>
+        <th>Action</th>
+        <th>User</th>
+        <th>Data ID</th>
+        <th>Timestamp</th>
+    </tr>
+    {% for log in logs %}
+        <tr>
+            <td>{{ log.action }}</td>
+            <td>{{ log.user.username if log.user else 'System' }}</td>
+            <td>
+                {% if log.data_id %}
+                    {% set data = datas.get(log.data_id) %}
+                    {% if data %}
+                        {{ data.name }}
+                    {% else %}
+                        Data {{ log.data_id }}
+                    {% endif %}
+                {% else %}
+                    N/A
+                {% endif %}
+            </td>
+            <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+        </tr>
+    {% endfor %}
+</table>
+{% if not logs %}
+<p style="text-align: center; color: #666; font-style: italic;">No activity logs yet.</p>
+{% endif %}
+{% endblock %}

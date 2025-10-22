@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Decrypt Data</h1>
+
+{% if user.role == 'member' %}
+<h2>My Decryption Requests</h2>
+{% if my_requests %}
+<table>
+    <tr>
+        <th>Data ID</th>
+        <th>Supervisor</th>
+        <th>Status</th>
+        <th>Requested At</th>
+        <th>Approved At</th>
+        <th>Action</th>
+    </tr>
+    {% for req in my_requests %}
+        <tr>
+            <td>{{ req.data.name }} {% if req.data.one_time_view %}(🔒){% endif %}</td>
+            <td>{{ req.approver.username }}</td>
+            <td><span class="status-{{ req.status }}">{{ req.status|title }}</span></td>
+            <td>{{ req.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>{{ req.approved_at.strftime('%Y-%m-%d %H:%M') if req.approved_at else 'N/A' }}</td>
+            <td>
+                {% if req.status == 'approved' %}
+                    {% if req.viewed and req.data.one_time_view %}
+                        <span style="color: #666; font-style: italic;">Already viewed (one-time)</span>
+                        <br><small style="color: #888;">Request again for new access</small>
+                    {% else %}
+                        <form method="post" style="display:inline;">
+                            <input type="hidden" name="request_id" value="{{ req.id }}">
+                            <input type="hidden" name="data_id" value="{{ req.data_id }}">
+                            <button type="submit" class="btn-success">View Decrypted Data</button>
+                        </form>
+                        {% if req.data.one_time_view %}
+                            <br><small style="color: #ff9800;">⚠️ One-time view</small>
+                        {% endif %}
+                    {% endif %}
+                {% elif req.status == 'declined' %}
+                    <span style="color: #f44336; font-weight: bold;">Declined</span>
+                {% else %}
+                    <span class="status-pending">Pending approval</span>
+                {% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p style="text-align: center; color: #666; font-style: italic;">No requests yet.</p>
+{% endif %}
+
+<h2>Request New Decryption</h2>
+<form method="post">
+    <label for="data_id">Select Data to Request Decryption:</label>
+    <select id="data_id" name="data_id" required>
+        <option value="">Choose data...</option>
+        {% for data in datas %}
+            <option value="{{ data.id }}">{{ data.name }} {% if data.one_time_view %}(🔒 One-time){% endif %} - Created: {{ data.created_at.strftime('%Y-%m-%d %H:%M') }}</option>
+        {% endfor %}
+    </select>
+    <label for="supervisor_id">Select Supervisor to Approve:</label>
+    <select id="supervisor_id" name="supervisor_id" required>
+        <option value="">Choose supervisor...</option>
+        {% for supervisor in supervisors %}
+            <option value="{{ supervisor.id }}">{{ supervisor.username }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="btn-success">Send Request</button>
+</form>
+{% endif %}
+
+{% if user.role == 'supervisor' %}
+<h2>Pending Approval Requests</h2>
+{% if pending_requests %}
+<table>
+    <tr>
+        <th>Data ID</th>
+        <th>Requester</th>
+        <th>Requested At</th>
+        <th>Action</th>
+    </tr>
+    {% for req in pending_requests %}
+        <tr>
+            <td>{{ req.data.name }} {% if req.data.one_time_view %}(🔒){% endif %}</td>
+            <td>{{ req.requester.username }}</td>
+            <td>{{ req.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>
+                <form method="post" style="display:inline; margin-right: 10px;">
+                    <input type="hidden" name="request_id" value="{{ req.id }}">
+                    <input type="hidden" name="action" value="approve">
+                    <button type="submit" class="btn-success">Approve & Decrypt</button>
+                </form>
+                <form method="post" style="display:inline;">
+                    <input type="hidden" name="request_id" value="{{ req.id }}">
+                    <input type="hidden" name="action" value="decline">
+                    <button type="submit" class="btn-danger">Decline</button>
+                </form>
+            </td>
+        </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p style="text-align: center; color: #666; font-style: italic;">No pending requests.</p>
+{% endif %}
+{% endif %}
+{% endblock %}
