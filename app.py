@@ -386,4 +386,4 @@ if __name__ == '__main__':
                 user = User(username=f'supervisor{i+1}', role='supervisor', public_key=serialize_public_key(pub), private_key=serialize_private_key(priv))
                 db.session.add(user)
             db.session.commit()
-    app.run(debug=True)
+    app.run(host='0.0.0.0', debug=True)
