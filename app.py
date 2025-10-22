@@ -487,6 +487,75 @@ def add_user():
             proxy_key = ProxyKey(data_id=data.id, user_id=new_user.id, encrypted_aes_key=encrypted_aes_key)
             db.session.add(proxy_key)
 
+    # For non-proxy data, we need to add the new user to existing encrypted keys
+    non_proxy_datas = EncryptedData.query.filter_by(use_proxy=False).all()
+    for data in non_proxy_datas:
+        if data.symmetric_key_encrypted:
+            import json
+            encrypted_keys = json.loads(data.symmetric_key_encrypted)
+
+            # Add new user to the encrypted keys
+            if new_user.role == 'member':
+                pub_key = deserialize_public_key(new_user.public_key)
+                # Get the original symmetric key by decrypting with any existing member's key
+                existing_member_key = None
+                for key_name, enc_key in encrypted_keys.items():
+                    if key_name.startswith('member_'):
+                        existing_member_key = enc_key
+                        break
+
+                if existing_member_key:
+                    # Find an existing member to get the symmetric key
+                    existing_member_id = None
+                    for key_name in encrypted_keys.keys():
+                        if key_name.startswith('member_'):
+                            existing_member_id = int(key_name.split('_')[1])
+                            break
+
+                    if existing_member_id:
+                        existing_member = User.query.get(existing_member_id)
+                        if existing_member:
+                            existing_priv = deserialize_private_key(existing_member.private_key)
+                            symmetric_key = decrypt_symmetric_key(existing_member_key, existing_priv)
+
+                            # Encrypt with new user's public key
+                            new_encrypted_key = encrypt_symmetric_key(symmetric_key, pub_key)
+                            encrypted_keys[f'member_{new_user.id}'] = new_encrypted_key
+
+                            # Update the data record
+                            data.symmetric_key_encrypted = json.dumps(encrypted_keys)
+                            db.session.commit()
+            elif new_user.role == 'supervisor':
+                pub_key = deserialize_public_key(new_user.public_key)
+                # Get the original symmetric key by decrypting with any existing supervisor's key
+                existing_supervisor_key = None
+                for key_name, enc_key in encrypted_keys.items():
+                    if key_name.startswith('supervisor_'):
+                        existing_supervisor_key = enc_key
+                        break
+
+                if existing_supervisor_key:
+                    # Find an existing supervisor to get the symmetric key
+                    existing_supervisor_id = None
+                    for key_name in encrypted_keys.keys():
+                        if key_name.startswith('supervisor_'):
+                            existing_supervisor_id = int(key_name.split('_')[1])
+                            break
+
+                    if existing_supervisor_id:
+                        existing_supervisor = User.query.get(existing_supervisor_id)
+                        if existing_supervisor:
+                            existing_priv = deserialize_private_key(existing_supervisor.private_key)
+                            symmetric_key = decrypt_symmetric_key(existing_supervisor_key, existing_priv)
+
+                            # Encrypt with new user's public key
+                            new_encrypted_key = encrypt_symmetric_key(symmetric_key, pub_key)
+                            encrypted_keys[f'supervisor_{new_user.id}'] = new_encrypted_key
+
+                            # Update the data record
+                            data.symmetric_key_encrypted = json.dumps(encrypted_keys)
+                            db.session.commit()
+
     db.session.commit()
 
     log = Log(action=f'New user {username} added with role {role}', user_id=session['user_id'])
