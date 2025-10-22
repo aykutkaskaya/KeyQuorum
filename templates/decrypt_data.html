@@ -17,7 +17,7 @@
     </tr>
     {% for req in my_requests %}
         <tr>
-            <td>{{ req.data.name }} {% if req.data.one_time_view %}(🔒){% endif %}</td>
+            <td>{{ req.data.name }} {% if req.data.one_time_view %}(🔒){% endif %} {% if req.data.use_proxy %}(🔑 Proxy){% endif %}</td>
             <td>{{ req.approver.username }}</td>
             <td><span class="status-{{ req.status }}">{{ req.status|title }}</span></td>
             <td>{{ req.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
@@ -56,7 +56,7 @@
     <select id="data_id" name="data_id" required>
         <option value="">Choose data...</option>
         {% for data in datas %}
-            <option value="{{ data.id }}">{{ data.name }} {% if data.one_time_view %}(🔒 One-time){% endif %} - Created: {{ data.created_at.strftime('%Y-%m-%d %H:%M') }}</option>
+            <option value="{{ data.id }}">{{ data.name }} {% if data.one_time_view %}(🔒 One-time){% endif %} {% if data.use_proxy %}(🔑 Proxy){% endif %} - Created: {{ data.created_at.strftime('%Y-%m-%d %H:%M') }}</option>
         {% endfor %}
     </select>
     <label for="supervisor_id">Select Supervisor to Approve:</label>
@@ -82,14 +82,14 @@
     </tr>
     {% for req in pending_requests %}
         <tr>
-            <td>{{ req.data.name }} {% if req.data.one_time_view %}(🔒){% endif %}</td>
+            <td>{{ req.data.name }} {% if req.data.one_time_view %}(🔒){% endif %} {% if req.data.use_proxy %}(🔑 Proxy){% endif %}</td>
             <td>{{ req.requester.username }}</td>
             <td>{{ req.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
             <td>
                 <form method="post" style="display:inline; margin-right: 10px;">
                     <input type="hidden" name="request_id" value="{{ req.id }}">
                     <input type="hidden" name="action" value="approve">
-                    <button type="submit" class="btn-success">Approve & Decrypt</button>
+                    <button type="submit" class="btn-success">{% if req.data.use_proxy %}Approve{% else %}Approve & Decrypt{% endif %}</button>
                 </form>
                 <form method="post" style="display:inline;">
                     <input type="hidden" name="request_id" value="{{ req.id }}">
