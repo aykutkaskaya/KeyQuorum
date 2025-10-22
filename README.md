@@ -31,7 +31,7 @@ A Flask-based web application demonstrating a multi-key encryption system with d
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/aykutkaskaya/KeyQuorum.git
    cd KeyQuorum
    ```
 
